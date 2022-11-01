@@ -99,16 +99,12 @@ const auth = async (req, res, next) => {
 };
 
 
-const loginWithFacebook = async (req,res,next)=>{
 
-  
-
-}
 
 module.exports = {
   register,
   login,
   loginWithGoogle,
   auth,
-  loginWithFacebook
+
 };

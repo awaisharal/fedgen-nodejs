@@ -13,8 +13,7 @@ exports.getJwtStrategy = () => {
   }
 
   return new JwtStrategy(options, async (jwtPayload, done) => {
-    const user = Users.findById(jwtPayload.id)
-    //await db[MODELS.ADMIN].findByPk(jwtPayload.id)
+    const user = await Users.findById(jwtPayload.id)
     if (!user)
       return done(
         new APIError({

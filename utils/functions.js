@@ -1,6 +1,6 @@
 require('dotenv').config();
 const axios = require("axios");
-
+var crypto = require("crypto");
 
 exports.getAccessTokenFromCode = async (code) => {
   try{
@@ -33,3 +33,38 @@ exports.getGoogleUserInfo =  async (access_token)=> {
   });
   return data;
 };
+
+
+exports.getFBAccessTokenFromCode = async (code) =>{
+  const { data } = await axios({
+    url: 'https://graph.facebook.com/v4.0/oauth/access_token',
+    method: 'GET',
+    params: {
+      client_id: process.env.FB_APP_ID,
+      client_secret: process.env.FB_APP_SECRET,
+      redirect_uri: process.env.FB_REDIRECT_URI,
+      code,
+    },
+  });
+  // console.log(data); // { access_token, token_type, expires_in }
+  return data.access_token;
+};
+
+
+
+exports.getFacebookUserData = async(accesstoken) => {
+  const { data } = await axios({
+    url: 'https://graph.facebook.com/me',
+    method: 'GET',
+    params: {
+      fields: ['id', 'email', 'first_name', 'last_name'].join(','),
+      access_token: accesstoken,
+    },
+  });
+  // console.log(data); 
+  return data;
+};
+
+exports.generateForgotPasswordToken = async () =>{
+  return crypto.randomBytes(16).toString("hex")
+}

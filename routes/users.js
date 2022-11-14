@@ -22,6 +22,10 @@ var {
   likeCreation,
   deleteLike,
 } = require("../controllers/usersController");
+
+const {  createCredits,
+  getAllCredits,
+  getCreditById,} = require("../controllers/creditsCont")
 //login
 router.post("/register", register);
 router.post("/login", login);
@@ -44,4 +48,8 @@ router.get("/getAllCreations", getAllCreations);
 router.post("/likeCreation", authJwt, likeCreation);
 router.post("/deleteLike", authJwt, deleteLike);
 
+//credits 
+router.post("/createCredits", authJwt, createCredits);
+router.get("/getAllCredits", authJwt, getAllCredits);
+router.post("/getCreditById", authJwt, getCreditById);
 module.exports = router;

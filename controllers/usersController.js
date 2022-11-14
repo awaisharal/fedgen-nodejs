@@ -9,7 +9,7 @@ const Users = require("../models/User");
 const Group = require("../models/groups");
 const Creations = require("../models/generatedImages");
 const Like = require("../models/likes");
-const { APIresponse } = require("../utils/APIResponse");
+const { APIresponse, APIErrorResponse } = require("../utils/APIResponse");
 const APIError = require("../utils/APIError");
 const {
   regSchema,
@@ -35,21 +35,17 @@ const likes = require("../models/likes");
 
 const register = catchAsync(async (req, res, next) => {
   const { firstName, lastName, email, password, cpassword } = req.body;
- 
+
   const validate = regSchema.validate(req.body);
   if (validate.error) {
-    return next(
-      new APIError(validate.error.details[0].message, status.BAD_REQUEST)
-    );
+    return next(APIErrorResponse(res, validate.error.details[0].message));
   }
   const isExists = await Users.find({
     email: email,
   });
 
   if (isExists.length == 1) {
-    return next(
-      new APIError(MESSAGES.EMAIL_ALREADY_EXISTS, status.BAD_REQUEST)
-    );
+    return next(APIErrorResponse(res, MESSAGES.EMAIL_ALREADY_EXISTS));
   }
 
   const hash = await bcrypt.hash(password, 12);
@@ -81,16 +77,14 @@ const login = catchAsync(async (req, res, next) => {
   const loginValidation = loginSchema.validate(req.body);
   if (loginValidation.error) {
     return next(
-      new APIError(loginValidation.error.details[0].message, status.BAD_REQUEST)
+      APIErrorResponse(res, loginValidation.error.details[0].message)
     );
   }
   var data = await Users.find({
     email: email,
   });
   if (data.length == 0) {
-    return next(
-      new APIError(MESSAGES.CREDENTIALS_NOT_VALID, status.BAD_REQUEST)
-    );
+    return next(new APIErrorResponse(res, MESSAGES.CREDENTIALS_NOT_VALID));
   }
   let validatePassword = await bcrypt.compareSync(password, data[0].password);
   if (validatePassword) {
@@ -107,7 +101,7 @@ const login = catchAsync(async (req, res, next) => {
       token: jwtToken,
     });
   }
-  return next(new APIError(MESSAGES.CREDENTIALS_NOT_VALID, status.BAD_REQUEST));
+  return next(APIErrorResponse(res, MESSAGES.CREDENTIALS_NOT_VALID));
 });
 
 const loginWithGoogle = catchAsync(async (req, res, next) => {
@@ -167,7 +161,7 @@ const auth = catchAsync(async (req, res, next) => {
 
   if (data[0].email == getUserInfo.data.email) {
     return next(
-      new APIError(MESSAGES.EMAIL_ALREADY_EXISTS, status.BAD_REQUEST)
+      APIErrorResponse(res, MESSAGES.EMAIL_ALREADY_EXISTS, status.BAD_REQUEST)
     );
   }
   var data = await Users.find({
@@ -177,7 +171,11 @@ const auth = catchAsync(async (req, res, next) => {
 
   if (data.length == 0) {
     return next(
-      new APIError(MESSAGES.LOGIN_USING_OTHER_METHODS, status.BAD_REQUEST)
+      APIErrorResponse(
+        res,
+        MESSAGES.LOGIN_USING_OTHER_METHODS,
+        status.BAD_REQUEST
+      )
     );
   }
   const id = data[0]._id.toString();
@@ -205,7 +203,9 @@ const loginWithFacebook = catchAsync(async (req, res, next) => {
   });
 
   const facebookLoginUrl = `https://www.facebook.com/v4.0/dialog/oauth?${stringifiedParams}`;
-  res.json(facebookLoginUrl);
+  APIresponse(res, {
+    url: facebookLoginUrl,
+  });
 });
 
 const facebookAuth = catchAsync(async (req, res, next) => {
@@ -246,9 +246,7 @@ const facebookAuth = catchAsync(async (req, res, next) => {
   }
 
   if (data[0].email == getUserInfo.email) {
-    return next(
-      new APIError(MESSAGES.EMAIL_ALREADY_EXISTS, status.BAD_REQUEST)
-    );
+    return next(APIErrorResponse(res, MESSAGES.EMAIL_ALREADY_EXISTS));
   }
   var data = await Users.find({
     email: getUserInfo.email,
@@ -256,9 +254,7 @@ const facebookAuth = catchAsync(async (req, res, next) => {
   });
 
   if (data.length == 0) {
-    return next(
-      new APIError(MESSAGES.LOGIN_USING_OTHER_METHODS, status.BAD_REQUEST)
-    );
+    return next(APIErrorResponse(res, MESSAGES.LOGIN_USING_OTHER_METHODS));
   }
   const id = data[0]._id.toString();
   const jwtToken = jwt.sign(
@@ -278,7 +274,7 @@ const addProfilePicture = catchAsync(async (req, res, next) => {
   const { profilePicture } = req.files;
 
   if (!profilePicture) {
-    return next(new APIError(MESSAGES.NO_FILES_SELECTED, status.BAD_REQUEST));
+    return next(APIErrorResponse(res, MESSAGES.NO_FILES_SELECTED));
   }
   var rand = crypto.randomBytes(20).toString("hex");
   const fileName = `${rand}-${profilePicture.name}`;
@@ -317,10 +313,7 @@ const updateProfile = catchAsync(async (req, res, next) => {
   const profileValidation = profile.validate(req.body);
   if (profileValidation.error) {
     return next(
-      new APIError(
-        profileValidation.error.details[0].message,
-        status.BAD_REQUEST
-      )
+      APIErrorResponse(res, profileValidation.error.details[0].message)
     );
   }
 
@@ -346,7 +339,7 @@ const updateProfile = catchAsync(async (req, res, next) => {
       user: updateProfile,
     });
   }
-  return next(new APIError(MESSAGES.NOT_SUCCESSFUL, status.BAD_REQUEST));
+  return next(APIErrorResponse(res, MESSAGES.NOT_SUCCESSFUL));
 });
 
 const getProfile = catchAsync(async (req, res, next) => {
@@ -362,16 +355,13 @@ const forgetPassword = catchAsync(async (req, res, next) => {
   const validateEmailSchema = emailSchema.validate(req.body);
   if (validateEmailSchema.error) {
     return next(
-      new APIError(
-        validateEmailSchema.error.details[0].message,
-        status.BAD_REQUEST
-      )
+      APIErrorResponse(res, validateEmailSchema.error.details[0].message)
     );
   }
   const user = await Users.findById(req.user.id);
 
   if (user.email !== email) {
-    return next(new APIError(MESSAGES.EMAIL_NOT_FOUND, status.BAD_REQUEST));
+    return next(APIErrorResponse(res, MESSAGES.EMAIL_NOT_FOUND));
   }
   const token = await generateForgotPasswordToken();
   const currentDate = addMinutes(new Date(), 3);
@@ -411,10 +401,7 @@ const resetPassword = catchAsync(async (req, res, next) => {
   const newPasswordSchema = passwordResetSchema.validate(req.body);
   if (newPasswordSchema.error) {
     return next(
-      new APIError(
-        newPasswordSchema.error.details[0].message,
-        status.BAD_REQUEST
-      )
+      APIErrorResponse(res, newPasswordSchema.error.details[0].message)
     );
   }
   const findToken = await Users.findOne({
@@ -424,7 +411,7 @@ const resetPassword = catchAsync(async (req, res, next) => {
     },
   });
   if (findToken == null) {
-    return next(new APIError(MESSAGES.TOKEN_NOT_VALID, status.BAD_REQUEST));
+    return next((res, MESSAGES.TOKEN_NOT_VALID));
   }
   const hash = await bcrypt.hash(newPassword, 12);
   const passwordUpdate = await Users.findOneAndUpdate(
@@ -448,10 +435,7 @@ const changePassword = catchAsync(async (req, res, next) => {
   const { currentPassword, newPassword } = req.body;
   if (passwordValidation.error) {
     return next(
-      new APIError(
-        passwordValidation.error.details[0].message,
-        status.BAD_REQUEST
-      )
+      APIErrorResponse(res, passwordValidation.error.details[0].message)
     );
   }
   const isExists = await Users.findOne({
@@ -465,9 +449,7 @@ const changePassword = catchAsync(async (req, res, next) => {
   );
 
   if (!validatePassword) {
-    return next(
-      new APIError(MESSAGES.CREDENTIALS_NOT_VALID, status.BAD_REQUEST)
-    );
+    return next(APIErrorResponse(res, MESSAGES.CREDENTIALS_NOT_VALID));
   }
   const hash = await bcrypt.hash(newPassword, 12);
   const updatePassword = await Users.findOneAndUpdate(
@@ -495,16 +477,17 @@ const createGroup = catchAsync(async (req, res, next) => {
   const schemaCheck = addToCollectionSchema.validate(req.body);
 
   if (schemaCheck.error) {
-    return next(
-      new APIError(schemaCheck.error.details[0].message, status.BAD_REQUEST)
-    );
+    return next(APIErrorResponse(res, schemaCheck.error.details[0].message));
   }
-  const upDate = await Group.insertMany({
-    name: name,
-    userId: req.user.id,
-  },{
-    new : true
-  });
+  const upDate = await Group.insertMany(
+    {
+      name: name,
+      userId: req.user.id,
+    },
+    {
+      new: true,
+    }
+  );
 
   APIresponse(res, MESSAGES.SUCCESS_MESSAGE, {
     data: upDate,
@@ -515,7 +498,7 @@ const deleteGroup = catchAsync(async (req, res, next) => {
   const { id } = req.body;
 
   if (!id) {
-    return next(new APIError(MESSAGES.ID_IS_REQUIRED, status.BAD_REQUEST));
+    return next(APIErrorResponse(res, MESSAGES.ID_IS_REQUIRED));
   }
   const del = await Group.findByIdAndDelete({ _id: id });
 
@@ -527,9 +510,7 @@ const updateGroup = catchAsync(async (req, res, next) => {
   const schemaCheck = updateCollectionSchema.validate(req.body);
 
   if (schemaCheck.error) {
-    return next(
-      new APIError(schemaCheck.error.details[0].message, status.BAD_REQUEST)
-    );
+    return next(APIErrorResponse(res, schemaCheck.error.details[0].message));
   }
   const updatGroup = await Group.findByIdAndUpdate(
     { _id: id },
@@ -545,22 +526,20 @@ const updateGroup = catchAsync(async (req, res, next) => {
 });
 
 const getAllCreationsById = catchAsync(async (req, res, next) => {
-  
-  const getUser = await Users.find({userName: req.body.userName})
-  if(getUser.length == 0)
-  {
+  const getUser = await Users.find({ userName: req.body.userName });
+  if (getUser.length == 0) {
     return res.json("userNotFound");
   }
 
-  const getAllCreations = await Creations.find({ userId: getUser[0]._id});
+  const getAllCreations = await Creations.find({ userId: getUser[0]._id });
   APIresponse(res, MESSAGES.SUCCESS_MESSAGE, {
     data: getAllCreations,
-    user: getUser
+    user: getUser,
   });
 });
 
 const getAllCreations = catchAsync(async (req, res, next) => {
-  const all = await Creations.find().sort({"createdAt": -1});
+  const all = await Creations.find().sort({ createdAt: -1 });
 
   APIresponse(res, MESSAGES.SUCCESS_MESSAGE, {
     data: all,
@@ -570,7 +549,7 @@ const getAllCreations = catchAsync(async (req, res, next) => {
 const likeCreation = catchAsync(async (req, res, next) => {
   const { creationId } = req.body;
   if (!creationId) {
-    return next(new APIError("Creation Id is Required"));
+    return next(APIErrorResponse(res, "Creation Id is Required"));
   }
   const createe = await Like.insertMany({
     userId: req.user.id,
@@ -585,14 +564,12 @@ const likeCreation = catchAsync(async (req, res, next) => {
 const deleteLike = catchAsync(async (req, res, next) => {
   const { creationId } = req.body;
   if (!creationId) {
-    return next(new APIError("Creation Id is Required"));
+    return next(APIErrorResponse(res, "Creation Id is Required"));
   }
   const del = await likes.findOneAndDelete({
     creationId: creationId,
     userId: req.user.id,
   });
-
-  console.log("del",del)
   APIresponse(res, MESSAGES.SUCCESS_MESSAGE);
 });
 module.exports = {
@@ -614,5 +591,5 @@ module.exports = {
   getAllCreationsById,
   getAllCreations,
   likeCreation,
-  deleteLike
+  deleteLike,
 };

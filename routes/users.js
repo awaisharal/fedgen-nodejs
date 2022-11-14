@@ -27,6 +27,10 @@ const {  createCredits,
   getAllCredits,
   getCreditById,createPayment
 } = require("../controllers/creditsCont")
+
+const {
+  updatePaymentStatus
+} = require("../controllers/stripe")
 //login
 router.post("/register", register);
 router.post("/login", login);
@@ -54,4 +58,5 @@ router.post("/createCredits", authJwt, createCredits);
 router.get("/getAllCredits", authJwt, getAllCredits);
 router.post("/getCreditById", authJwt, getCreditById);
 router.post("/createPayment", authJwt, createPayment);
+router.post("/updatePaymentStatus/success", updatePaymentStatus);
 module.exports = router;

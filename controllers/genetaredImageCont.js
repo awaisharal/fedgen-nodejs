@@ -1,8 +1,7 @@
 require("dotenv").config();
 const catchAsync = require("../utils/catchAsync");
 const status = require("http-status");
-const { APIresponse } = require("../utils/APIResponse");
-const APIError = require("../utils/APIError");
+const { APIresponse,APIErrorResponse} = require("../utils/APIResponse");
 const Creations = require("../models/generatedImages");
 
 const { MESSAGES } = require("../utils/constants");
@@ -13,7 +12,7 @@ const uploadImage = catchAsync(async (req, res, next) => {
   const { base64image, prompt } = req.body;
   const imgdata = base64image;
   if (!imgdata) {
-    return next(new APIError(MESSAGES.NO_FILES_SELECTED, status.BAD_REQUEST));
+    return next(APIErrorResponse(res,MESSAGES.NO_FILES_SELECTED));
   }
   var rand = crypto.randomBytes(20).toString("hex");
   const fileName = `${rand}+FedGen.png`;

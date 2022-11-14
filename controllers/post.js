@@ -1,8 +1,7 @@
 require("dotenv").config();
 const catchAsync = require("../utils/catchAsync");
 const status = require("http-status");
-const { APIresponse } = require("../utils/APIResponse");
-const APIError = require("../utils/APIError");
+const { APIErrorResponse } = require("../utils/APIResponse");
 const Post = require("../models/post");
 const { MESSAGES } = require("../utils/constants");
 var crypto = require("crypto");
@@ -11,7 +10,7 @@ const createPost = catchAsync(async (req, res, next) => {
     const img = req.files
     if(!img){
         return next(
-            new APIError(MESSAGES.NO_FILES_SELECTED,status.BAD_REQUEST)
+            APIErrorResponse(res,MESSAGES.NO_FILES_SELECTED)
         )
     }
     const description = req.body.description == null ? " " : req.body.description;

@@ -7,3 +7,9 @@ exports.APIresponse = (res, successMsg, successData) => {
     data: successData
   })
 }
+exports.APIErrorResponse = (res, errorMessage) => {
+  return res.status(status.OK).json({
+    success: false,
+    message: errorMessage,
+  })
+}

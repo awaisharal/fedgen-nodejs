@@ -25,7 +25,8 @@ var {
 
 const {  createCredits,
   getAllCredits,
-  getCreditById,} = require("../controllers/creditsCont")
+  getCreditById,createPayment
+} = require("../controllers/creditsCont")
 //login
 router.post("/register", register);
 router.post("/login", login);
@@ -52,4 +53,5 @@ router.post("/deleteLike", authJwt, deleteLike);
 router.post("/createCredits", authJwt, createCredits);
 router.get("/getAllCredits", authJwt, getAllCredits);
 router.post("/getCreditById", authJwt, getCreditById);
+router.post("/createPayment", authJwt, createPayment);
 module.exports = router;

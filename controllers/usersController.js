@@ -84,7 +84,7 @@ const login = catchAsync(async (req, res, next) => {
     email: email,
   });
   if (data.length == 0) {
-    return next(new APIErrorResponse(res, MESSAGES.CREDENTIALS_NOT_VALID));
+    return next(APIErrorResponse(res, MESSAGES.CREDENTIALS_NOT_VALID));
   }
   let validatePassword = await bcrypt.compareSync(password, data[0].password);
   if (validatePassword) {

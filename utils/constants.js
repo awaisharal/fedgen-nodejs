@@ -17,7 +17,8 @@ const MESSAGES = {
     <a href="frontEndUrlHere/users/resetPassword?token=${token}">Reset Your Password</a>`
   },
   EMAIL_SUCCESSFUL : "Email Sent Successfully",
-  PASSWORD_UPDATED_SUCCESSFUL : "Password Update Success"
+  PASSWORD_UPDATED_SUCCESSFUL : "Password Update Success",
+  ID_IS_REQUIRED : "Id is a Required Field"
 
 };
 const SIGNUPMETHOD = {

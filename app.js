@@ -11,6 +11,7 @@ const globalErrorHandler = require("./middlewares/globalErrorHandler")
 var app = express();
 // =======================
 //routers
+var genetaredImageRouter = require("./routes/generatedImagesRoutes")
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 
@@ -42,6 +43,7 @@ app.use(globalErrorHandler)
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/model', genetaredImageRouter);
 
 
 module.exports = app;

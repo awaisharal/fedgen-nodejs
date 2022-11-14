@@ -6,6 +6,9 @@ const jwt = require("jsonwebtoken");
 const status = require("http-status");
 const bcrypt = require("bcrypt");
 const Users = require("../models/User");
+const Group = require("../models/groups");
+const Creations = require("../models/generatedImages");
+const Like = require("../models/likes");
 const { APIresponse } = require("../utils/APIResponse");
 const APIError = require("../utils/APIError");
 const {
@@ -15,6 +18,8 @@ const {
   emailSchema,
   passwordResetSchema,
   passwordChangeSchema,
+  addToCollectionSchema,
+  updateCollectionSchema,
 } = require("../utils/schema");
 const { MESSAGES, SIGNUPMETHOD } = require("../utils/constants");
 const queryString = require("query-string");
@@ -25,10 +30,11 @@ const {
   getFacebookUserData,
   generateForgotPasswordToken,
 } = require("../utils/functions");
-// const { sendEmail } = require("../utils/Email");
+const { sendEmail } = require("../utils/Email");
+const likes = require("../models/likes");
 
 const register = catchAsync(async (req, res, next) => {
-  const { firstName,lastName, email, password, cpassword } = req.body;
+  const { firstName, lastName, email, password, cpassword } = req.body;
   console.log(req.body);
   const validate = regSchema.validate(req.body);
   if (validate.error) {
@@ -48,10 +54,10 @@ const register = catchAsync(async (req, res, next) => {
 
   const hash = await bcrypt.hash(password, 12);
 
-  const data =  await Users.insertMany(
+  const data = await Users.insertMany(
     {
       firstName: firstName,
-      lastName : lastName,
+      lastName: lastName,
       email: email,
       password: hash,
       signupMethod: SIGNUPMETHOD.FORM,
@@ -265,7 +271,6 @@ const facebookAuth = catchAsync(async (req, res, next) => {
 
 const addProfilePicture = catchAsync(async (req, res, next) => {
   const { profilePicture } = req.files;
-  const { user_id } = req.body;
 
   if (!profilePicture) {
     return next(new APIError(MESSAGES.NO_FILES_SELECTED, status.BAD_REQUEST));
@@ -273,14 +278,15 @@ const addProfilePicture = catchAsync(async (req, res, next) => {
   var rand = crypto.randomBytes(20).toString("hex");
   const fileName = `${rand}-${profilePicture.name}`;
 
-  await profilePicture.mv("./uploads/" + fileName);
+  await profilePicture.mv("./public/uploads/" + fileName);
+  const imageURL = `http://localhost:3000/uploads/${fileName}`;
 
   let data = await Users.findByIdAndUpdate(
     {
-      _id: user_id,
+      _id: req.user.id,
     },
     {
-      profilePicture: "/uploads/" + fileName,
+      profilePicture: imageURL,
     },
     {
       new: true,
@@ -293,7 +299,6 @@ const addProfilePicture = catchAsync(async (req, res, next) => {
 
 const updateProfile = catchAsync(async (req, res, next) => {
   const {
-    user_id,
     first_name,
     last_name,
     phone,
@@ -315,7 +320,7 @@ const updateProfile = catchAsync(async (req, res, next) => {
   }
 
   let updateProfile = await Users.findByIdAndUpdate(
-    { _id: user_id },
+    { _id: req.user.id },
     {
       firstName: first_name,
       lastName: last_name,
@@ -378,17 +383,16 @@ const forgetPassword = catchAsync(async (req, res, next) => {
       new: true,
     }
   );
-  // const sendMail = await sendEmail(
-  //   user[0].email,
-  //   MESSAGES.EMAIL_FOR_FORGET_PASSWORD_RESET,
-  //   MESSAGES.EMAIL_CONTENT(email, token)
-  // );
-  // if (sendMail instanceof APIError) {
-  //   return next(sendMail);
-  // }
+  const sendMail = await sendEmail(
+    user[0].email,
+    MESSAGES.EMAIL_FOR_FORGET_PASSWORD_RESET,
+    MESSAGES.EMAIL_CONTENT(email, token)
+  );
+  if (sendMail instanceof APIError) {
+    return next(sendMail);
+  }
   return APIresponse(res, MESSAGES.EMAIL_SUCCESSFUL, {
-    email: userToken,
-    // sendMail,
+    email: sendMail,
     token: token,
   });
 });
@@ -408,67 +412,176 @@ const resetPassword = catchAsync(async (req, res, next) => {
       )
     );
   }
-const findToken = await Users.findOne({
-  token : token,
-  expiresIn: {
-    $gte: new Date()
-  }
-})
-  if ( findToken == null) {
+  const findToken = await Users.findOne({
+    token: token,
+    expiresIn: {
+      $gte: new Date(),
+    },
+  });
+  if (findToken == null) {
     return next(new APIError(MESSAGES.TOKEN_NOT_VALID, status.BAD_REQUEST));
   }
   const hash = await bcrypt.hash(newPassword, 12);
-  const passwordUpdate = await Users.findOneAndUpdate({token : token},{
-    token : "",
-    expiresIn : new Date(),
-    password : hash
-  },{
-    new :true
-  })
-  return APIresponse(res, MESSAGES.PASSWORD_UPDATED_SUCCESSFUL,{
-    data : passwordUpdate
+  const passwordUpdate = await Users.findOneAndUpdate(
+    { token: token },
+    {
+      token: "",
+      expiresIn: new Date(),
+      password: hash,
+    },
+    {
+      new: true,
+    }
+  );
+  return APIresponse(res, MESSAGES.PASSWORD_UPDATED_SUCCESSFUL, {
+    data: passwordUpdate,
   });
 });
 
 const changePassword = catchAsync(async (req, res, next) => {
-  const passwordValidation = passwordChangeSchema.validate(req.body)
-  const { currentPassword, newPassword } = req.body
+  const passwordValidation = passwordChangeSchema.validate(req.body);
+  const { currentPassword, newPassword } = req.body;
   if (passwordValidation.error) {
     return next(
       new APIError(
         passwordValidation.error.details[0].message,
         status.BAD_REQUEST
       )
-    )
+    );
   }
   const isExists = await Users.findOne({
-    _id : req.user.id,
-    email : req.user.email
-  })
+    _id: req.user.id,
+    email: req.user.email,
+  });
 
-  let validatePassword = await bcrypt.compareSync(currentPassword, isExists.password);
+  let validatePassword = await bcrypt.compareSync(
+    currentPassword,
+    isExists.password
+  );
 
   if (!validatePassword) {
     return next(
       new APIError(MESSAGES.CREDENTIALS_NOT_VALID, status.BAD_REQUEST)
-    )
+    );
   }
   const hash = await bcrypt.hash(newPassword, 12);
-  const updatePassword = await Users.findOneAndUpdate({
-    _id : req.user.id,
-    email : req.user.email
-  },
+  const updatePassword = await Users.findOneAndUpdate(
     {
-      password : hash
-    },{
-      new : true
-    })
-  
-  return APIresponse(res, MESSAGES.PASSWORD_UPDATED_SUCCESSFUL, {
-    user: updatePassword
-  })
-})
+      _id: req.user.id,
+      email: req.user.email,
+    },
+    {
+      password: hash,
+    },
+    {
+      new: true,
+    }
+  );
 
+  return APIresponse(res, MESSAGES.PASSWORD_UPDATED_SUCCESSFUL, {
+    user: updatePassword,
+  });
+});
+
+//groups
+const createGroup = catchAsync(async (req, res, next) => {
+  const { name } = req.body;
+
+  const schemaCheck = addToCollectionSchema.validate(req.body);
+
+  if (schemaCheck.error) {
+    return next(
+      new APIError(schemaCheck.error.details[0].message, status.BAD_REQUEST)
+    );
+  }
+  const upDate = await Group.insertMany({
+    name: name,
+    userId: req.user.id,
+  },{
+    new : true
+  });
+
+  APIresponse(res, MESSAGES.SUCCESS_MESSAGE, {
+    data: upDate,
+  });
+});
+
+const deleteGroup = catchAsync(async (req, res, next) => {
+  const { id } = req.body;
+
+  if (!id) {
+    return next(new APIError(MESSAGES.ID_IS_REQUIRED, status.BAD_REQUEST));
+  }
+  const del = await Group.findByIdAndDelete({ _id: id });
+
+  APIresponse(res, MESSAGES.SUCCESS_MESSAGE);
+});
+
+const updateGroup = catchAsync(async (req, res, next) => {
+  const { id, name } = req.body;
+  const schemaCheck = updateCollectionSchema.validate(req.body);
+
+  if (schemaCheck.error) {
+    return next(
+      new APIError(schemaCheck.error.details[0].message, status.BAD_REQUEST)
+    );
+  }
+  const updatGroup = await Group.findByIdAndUpdate(
+    { _id: id },
+    {
+      name: name,
+    },
+    { new: true }
+  );
+
+  APIresponse(res, MESSAGES.SUCCESS_MESSAGE, {
+    data: updatGroup,
+  });
+});
+
+const getAllCreationsById = catchAsync(async (req, res, next) => {
+  const getAllCreations = await Creations.find({ userId: req.user.id });
+  APIresponse(res, MESSAGES.SUCCESS_MESSAGE, {
+    data: getAllCreations,
+  });
+});
+
+const getAllCreations = catchAsync(async (req, res, next) => {
+  const all = await Creations.find();
+
+  APIresponse(res, MESSAGES.SUCCESS_MESSAGE, {
+    data: all,
+  });
+});
+
+const likeCreation = catchAsync(async (req, res, next) => {
+  const { creationId } = req.body;
+  if (!creationId) {
+    return next(new APIError("Creation Id is Required"));
+  }
+  const createe = await Like.insertMany({
+    userId: req.user.id,
+    creationId: creationId,
+  });
+
+  APIresponse(res, MESSAGES.SUCCESS_MESSAGE, {
+    data: createe,
+  });
+});
+
+const deleteLike = catchAsync(async (req, res, next) => {
+  const { creationId } = req.body;
+  if (!creationId) {
+    return next(new APIError("Creation Id is Required"));
+  }
+  const del = await likes.findOneAndDelete({
+    creationId: creationId,
+    userId: req.user.id,
+  });
+
+  console.log("del",del)
+  APIresponse(res, MESSAGES.SUCCESS_MESSAGE);
+});
 module.exports = {
   register,
   login,
@@ -481,5 +594,12 @@ module.exports = {
   getProfile,
   forgetPassword,
   resetPassword,
-  changePassword
+  changePassword,
+  createGroup,
+  deleteGroup,
+  updateGroup,
+  getAllCreationsById,
+  getAllCreations,
+  likeCreation,
+  deleteLike
 };

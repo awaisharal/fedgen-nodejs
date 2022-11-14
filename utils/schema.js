@@ -37,10 +37,6 @@ const loginSchema = Joi.object({
 });
 
 const profile = Joi.object({
-  user_id: Joi.string().required().messages({
-    "any.required": `user_id is a required field`,
-    "string.empty": `user_id can not be empty`,
-  }),
   first_name: Joi.string().required().messages({
 	"any.required": `user_id is a required field`,
     "string.empty": `user_id can not be empty`,
@@ -87,11 +83,31 @@ const passwordChangeSchema = Joi.object({
     "string.max": `length must be less than or equal to 16 characters long`
   })
 })
+
+//groups
+const addToCollectionSchema = Joi.object({
+  name : Joi.string().required().messages({
+    "any.required": `Name is a required field`,
+    "string.empty": `Name can not be empty`,
+  })
+})
+const updateCollectionSchema = Joi.object({
+  name : Joi.string().required().messages({
+    "any.required": `Name is a required field`,
+    "string.empty": `Name can not be empty`,
+  }),
+  id : Joi.string().required().messages({
+    "any.required": `Name is a required field`,
+    "string.empty": `Name can not be empty`,
+  })
+})
 module.exports = {
   regSchema,
   loginSchema,
   profile,
   emailSchema,
   passwordResetSchema,
-  passwordChangeSchema
+  passwordChangeSchema,
+  addToCollectionSchema,
+  updateCollectionSchema
 };
